@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Главная страница</title>
+		<style>
+			body {
+				font-family: Arial, sans-serif;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				height: 100vh;
+				margin: 0;
+				background-color: #f0f0f0;
+			}
+			.container {
+				text-align: center;
+			}
+			input,
+			button {
+				margin: 10px;
+				padding: 10px;
+				font-size: 16px;
+				border: 1px solid #ccc;
+				border-radius: 5px;
+			}
+			button {
+				cursor: pointer;
+				background-color: #007bff;
+				color: #fff;
+				border: none;
+			}
+			button:hover {
+				background-color: #0056b3;
+			}
+			.hidden {
+				display: none;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1>Добро пожаловать!</h1>
+
+			<!-- Login Form -->
+			<div id="loginForm">
+				<h2>Вход</h2>
+				<input
+					type="text"
+					id="username"
+					placeholder="Имя пользователя"
+					required
+				/>
+				<input type="password" id="password" placeholder="Пароль" required />
+				<button id="loginButton">Login</button>
+				<div id="loginMessage" class="hidden"></div>
+			</div>
+
+			<!-- Logout Button -->
+			<div id="logoutSection" class="hidden">
+				<button id="logoutButton">Logout</button>
+			</div>
+		</div>
+
+		<script>
+			document
+				.getElementById('loginButton')
+				.addEventListener('click', function () {
+					const username = document.getElementById('username').value
+					const password = document.getElementById('password').value
+
+					fetch('/login/', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({ username, password }),
+					})
+						.then(response => response.text()) // Используем response.text() если возвращается только текст
+						.then(token => {
+							if (token) {
+								localStorage.setItem('token', token)
+								document.getElementById('loginForm').classList.add('hidden')
+								document
+									.getElementById('logoutSection')
+									.classList.remove('hidden')
+								document.getElementById('loginMessage').classList.add('hidden')
+							} else {
+								document.getElementById('loginMessage').textContent =
+									'Ошибка входа'
+								document
+									.getElementById('loginMessage')
+									.classList.remove('hidden')
+							}
+						})
+						.catch(error => {
+							console.error('Ошибка при входе:', error)
+							document.getElementById('loginMessage').textContent =
+								'Ошибка при входе'
+							document.getElementById('loginMessage').classList.remove('hidden')
+						})
+				})
+
+			document
+				.getElementById('logoutButton')
+				.addEventListener('click', function () {
+					// Удаляем токен из localStorage
+					localStorage.removeItem('token')
+
+					// Обновляем отображение элементов на странице
+					document.getElementById('loginForm').classList.remove('hidden')
+					document.getElementById('logoutSection').classList.add('hidden')
+				})
+
+			// Check if token exists and show/hide login/logout sections accordingly
+			if (localStorage.getItem('token')) {
+				document.getElementById('loginForm').classList.add('hidden')
+				document.getElementById('logoutSection').classList.remove('hidden')
+			} else {
+				document.getElementById('loginForm').classList.remove('hidden')
+				document.getElementById('logoutSection').classList.add('hidden')
+			}
+		</script>
+	</body>
+</html>

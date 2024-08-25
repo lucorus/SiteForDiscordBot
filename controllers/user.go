@@ -25,6 +25,7 @@ func (this *UserController) ListUsers() {
 		this.ServeJSON()
 		return
 	}
+	//this.TplName = "main_page.html"
 	this.Data["json"] = res
 	this.ServeJSON()
 }
@@ -116,7 +117,7 @@ func (this *UserController) LoginUser() {
 
 func (this *UserController) DeleteUser() {
 	body, err := ioutil.ReadAll(this.Ctx.Request.Body)
-		if err != nil {
+	if err != nil {
 		this.Ctx.Output.SetStatus(400)
 		this.Ctx.Output.Body([]byte("empty fields"))
 		return
@@ -139,3 +140,52 @@ func (this *UserController) DeleteUser() {
 	this.Data["json"] = "success!"
 	this.ServeJSON()
 }
+
+
+func GetUserUuidFromJWT(tokenString string) (string, error) {
+  token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+  if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+    return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+  }
+    return []byte(conf.Jwt_secret), nil
+  })
+  if err != nil {
+    return "", err
+  }
+
+  if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+    uuid, ok := claims["uuid"].(string)
+    if !ok {
+      return "", fmt.Errorf("uuid not found or invalid type")
+    }
+    return uuid, nil
+  }
+  return "", fmt.Errorf("invalid token")
+}
+
+
+func (this *UserController) Profile() {
+	authHeader := this.Ctx.Request.Header["Authorization"]
+	if len(authHeader) == 0 {
+		this.Redirect("/user/", 302)
+		return
+	}
+
+	AuthorizationToken := authHeader[0]
+
+	uuid, err := GetUserUuidFromJWT(AuthorizationToken)
+	if err != nil {
+		this.Redirect("/user/", 302)
+		return
+	}
+
+	user, err := models.Find(uuid)
+	if err != nil {
+		this.Redirect("/user/", 302)
+		return
+	}
+
+	this.Data["json"] = user
+	this.ServeJSON()
+}
+

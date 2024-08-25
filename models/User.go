@@ -157,18 +157,20 @@ func All() ([]User, error) {
 // Возвращаает пользователя с указанным uuid
 func Find(UUID string) (*User, error) {
 	db, err := CreateConnect()
-		if err != nil {
-			return nil, fmt.Errorf("Error: %v", err)
-		}
+	if err != nil {
+	    return nil, fmt.Errorf("Error: %v", err)
+	}
     rows, err := db.Query("SELECT * FROM users WHERE uuid = $1;", UUID)
     if err != nil {
         return nil, fmt.Errorf("error querying users: %v", err)
     }
     defer rows.Close()
-		var user User
+    CloseConnect(db)
+
+	var user User
     for rows.Next() {
         if err := rows.Scan(&user.UUID, &user.Username, &user.Password, &user.Discord_server_id, &user.Is_authorized, 
-            &user.Token); err != nil {
+        &user.Token); err != nil {
             return nil, fmt.Errorf("error scanning user: %v", err)
         }
     }
@@ -176,4 +178,61 @@ func Find(UUID string) (*User, error) {
         return nil, fmt.Errorf("error iterating rows: %v", err)
     }
     return &user, nil
+}
+
+
+// добавляет асоциацию пользователя на сайте с аккаунтом в ds (true - успешное выполнение операции)
+func Authorize(Token string, UserIdInDiscord int) bool {
+	db, err := CreateConnect()
+	if err != nil {
+	    return false
+	}
+
+    rows, err := db.Query("SELECT * FROM users WHERE discord_server_id = $1;", UserIdInDiscord)
+    defer rows.Close()
+
+    var users []User
+    for rows.Next() {
+        var user User
+        if err := rows.Scan(&user.UUID, &user.Username, &user.Password, &user.Discord_server_id, &user.Is_authorized, 
+            &user.Token); err != nil {
+            return false
+        }
+        users = append(users, user)
+    }
+    if err := rows.Err(); err != nil {
+        return false
+    }
+
+    if len(users) > 0 {
+        // если уже есть пользователи, которые привязаны к данному аккаунту, то отменяем привязку
+        return false
+    }
+
+    query := "UPDATE users SET discord_server_id = $1, is_authorized = $2 WHERE token = $3"
+    _, err = db.Exec(query, UserIdInDiscord, true, Token)
+    if err != nil {
+        return false
+    }
+    CloseConnect(db)
+
+    return true
+}
+
+
+// убирает асоциацию всех пользователей на сайте с аккаунтом в ds (true - успешное выполнение операции)
+func AnAuthorize(UserIdInDiscord int) bool {
+	db, err := CreateConnect()
+	if err != nil {
+	    return false
+	}
+
+    query := "UPDATE users SET discord_server_id = $1, is_authorized = $2 WHERE discord_server_id = $3"
+    _, err = db.Exec(query, "", false, UserIdInDiscord)
+    if err != nil {
+        return false
+    }
+    CloseConnect(db)
+
+    return true
 }
