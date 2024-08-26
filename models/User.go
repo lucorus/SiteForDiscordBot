@@ -236,3 +236,21 @@ func AnAuthorize(UserIdInDiscord int) bool {
 
     return true
 }
+
+
+// изменяет токен пользователя с переданным uuid
+func ChangeToken(UserUUID string) bool {
+    db, err := CreateConnect()
+	if err != nil {
+	    return false
+	}
+
+    query := "UPDATE users SET token = $1 WHERE uuid = $2"
+    _, err = db.Exec(query, uuid.New().String(), UserUUID)
+    if err != nil {
+        return false
+    }
+    CloseConnect(db)
+
+    return true
+}

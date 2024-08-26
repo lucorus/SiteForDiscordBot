@@ -30,7 +30,7 @@ func (this *DiscordUserController) ListUsers() {
 
 // выводит все учётные записи, на которых зарегестрирован текущий пользователь
 func (this *DiscordUserController) ListUsersForRequstUser() {
-		authHeader := this.Ctx.Request.Header["Authorization"]
+	authHeader := this.Ctx.Request.Header["Authorization"]
 	if len(authHeader) == 0 {
 		this.Redirect("/user/", 302)
 		return

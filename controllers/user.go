@@ -74,7 +74,7 @@ func (this *UserController) GetUser() {
 func GenerateJWT(uuid string) (string, error) {
     claims := jwt.MapClaims{
         "uuid": uuid,
-        "exp":  time.Now().Add(time.Hour * 1).Unix(),
+        "exp":  time.Now().Add(time.Hour * 100).Unix(),
     }
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
     return token.SignedString([]byte(conf.Jwt_secret))
@@ -189,3 +189,27 @@ func (this *UserController) Profile() {
 	this.ServeJSON()
 }
 
+
+func (this *UserController) ChangeToken() {
+	authHeader := this.Ctx.Request.Header["Authorization"]
+	if len(authHeader) == 0 {
+		this.Data["json"] = "Not success"
+		return
+	}
+
+	AuthorizationToken := authHeader[0]
+
+	uuid, err := GetUserUuidFromJWT(AuthorizationToken)
+	if err != nil {
+		this.Data["json"] = "Not success"
+		return
+	}
+
+	ok := models.ChangeToken(uuid)
+	if !ok {
+		this.Data["json"] = "Not success"
+	} else {
+		this.Data["json"] = "Success"
+	}
+	this.ServeJSON()
+}
