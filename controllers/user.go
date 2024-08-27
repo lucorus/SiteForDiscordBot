@@ -21,11 +21,11 @@ type UserController struct {
 func (this *UserController) ListUsers() {
 	res, err := models.All()
 	if err != nil {
-		this.Data["error"] = err
-		this.ServeJSON()
+		this.Ctx.Output.SetStatus(400)
 		return
 	}
 	//this.TplName = "main_page.html"
+	this.Ctx.Output.SetStatus(200)
 	this.Data["json"] = res
 	this.ServeJSON()
 }
@@ -55,29 +55,6 @@ func (this *UserController) NewUser() {
 	this.Ctx.Output.SetStatus(200)
 	this.Data["json"] = "success!"
 	this.ServeJSON()
-}
-
-
-func (this *UserController) GetUser() {
-	uuid := this.Ctx.Input.Param(":uuid")
-	user, err := models.Find(uuid)
-	if err != nil {
-		this.Ctx.Output.SetStatus(404)
-		this.Ctx.Output.Body([]byte("user not found"))
-	}
-	this.Ctx.Output.SetStatus(200)
-	this.Data["json"] = user
-	this.ServeJSON()
-}
-
-
-func GenerateJWT(uuid string) (string, error) {
-    claims := jwt.MapClaims{
-        "uuid": uuid,
-        "exp":  time.Now().Add(time.Hour * 100).Unix(),
-    }
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-    return token.SignedString([]byte(conf.Jwt_secret))
 }
 
 
@@ -116,21 +93,20 @@ func (this *UserController) LoginUser() {
 
 
 func (this *UserController) DeleteUser() {
-	body, err := ioutil.ReadAll(this.Ctx.Request.Body)
+	authHeader := this.Ctx.Request.Header["Authorization"]
+	if len(authHeader) == 0 {
+		this.Redirect("/user/", 302)
+		return
+	}
+	AuthorizationToken := authHeader[0]
+
+	Uuid, err := GetUserUuidFromJWT(AuthorizationToken)
 	if err != nil {
-		this.Ctx.Output.SetStatus(400)
-		this.Ctx.Output.Body([]byte("empty fields"))
+		this.Redirect("/user/", 302)
 		return
 	}
 
-	req := struct { Uuid string}{}
-	if err := json.Unmarshal(body, &req); err != nil {
-		this.Ctx.Output.SetStatus(400)
-		this.Ctx.Output.Body([]byte("empty fields"))
-		fmt.Println(req, err)
-		return
-	}
-  err = models.DeleteUser(req.Uuid)
+  err = models.DeleteUser(Uuid)
 	if err != nil {
 		this.Ctx.Output.SetStatus(400)
 		this.Ctx.Output.Body([]byte(err.Error()))
@@ -139,6 +115,16 @@ func (this *UserController) DeleteUser() {
 	this.Ctx.Output.SetStatus(200)
 	this.Data["json"] = "success!"
 	this.ServeJSON()
+}
+
+
+func GenerateJWT(uuid string) (string, error) {
+    claims := jwt.MapClaims{
+        "uuid": uuid,
+        "exp":  time.Now().Add(time.Hour * 100).Unix(),
+    }
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    return token.SignedString([]byte(conf.Jwt_secret))
 }
 
 
@@ -164,19 +150,23 @@ func GetUserUuidFromJWT(tokenString string) (string, error) {
 }
 
 
+// выводит данные пользователя с переданным uuid или берёт uuid из jwt токена
 func (this *UserController) Profile() {
-	authHeader := this.Ctx.Request.Header["Authorization"]
-	if len(authHeader) == 0 {
-		this.Redirect("/user/", 302)
-		return
-	}
+	uuid := this.Ctx.Input.Param(":uuid")
+	if len(uuid) == 0 {
+		authHeader := this.Ctx.Request.Header["Authorization"]
+		if len(authHeader) == 0 {
+			this.Redirect("/user/", 302)
+			return
+		}
+		AuthorizationToken := authHeader[0]
 
-	AuthorizationToken := authHeader[0]
-
-	uuid, err := GetUserUuidFromJWT(AuthorizationToken)
-	if err != nil {
-		this.Redirect("/user/", 302)
-		return
+		Uuid, err := GetUserUuidFromJWT(AuthorizationToken)
+		if err != nil {
+			this.Redirect("/user/", 302)
+			return
+		}
+		uuid = Uuid
 	}
 
 	user, err := models.Find(uuid)
@@ -186,30 +176,33 @@ func (this *UserController) Profile() {
 	}
 
 	this.Data["json"] = user
+	this.Ctx.Output.SetStatus(200)
 	this.ServeJSON()
 }
 
 
+// меняет токен текущему пользователю
 func (this *UserController) ChangeToken() {
 	authHeader := this.Ctx.Request.Header["Authorization"]
 	if len(authHeader) == 0 {
-		this.Data["json"] = "Not success"
+		this.Ctx.Output.SetStatus(400)
 		return
 	}
-
 	AuthorizationToken := authHeader[0]
 
 	uuid, err := GetUserUuidFromJWT(AuthorizationToken)
 	if err != nil {
-		this.Data["json"] = "Not success"
+		this.Ctx.Output.SetStatus(400)
 		return
 	}
 
 	ok := models.ChangeToken(uuid)
 	if !ok {
 		this.Data["json"] = "Not success"
+		this.Ctx.Output.SetStatus(400)
 	} else {
 		this.Data["json"] = "Success"
+		this.Ctx.Output.SetStatus(202)
 	}
 	this.ServeJSON()
 }

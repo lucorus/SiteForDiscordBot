@@ -123,3 +123,40 @@ func FindDsBotUsers(discord_user_id string) ([]DsBotUser, error) {
   return users, nil
 }
 
+
+// выводит все учётные записи пользователей на указанном дискорд сервере
+func ListUsersInGuild(GuildId string) ([]DsBotUser, error) {
+	db, err := CreateConnectToDiscordBotBD()
+	if err != nil {
+	    return nil, fmt.Errorf("Error: %v", err)
+	}
+
+	guild_id, err := strconv.Atoi(GuildId)
+	if err != nil {
+		return nil, fmt.Errorf("Error in change type")
+	}
+
+	query := "SELECT * FROM users JOIN guilds ON users.guild = guild_id WHERE guild_id = $1 ORDER BY users.points DESC"
+  rows, err := db.Query(query, guild_id)
+  if err != nil {
+    return nil, fmt.Errorf("error querying users: %v", err)
+  }
+  defer rows.Close()
+	CloseConnectToDiscordBotBD(db)
+
+  var users []DsBotUser
+  for rows.Next() {
+  	var user DsBotUser
+  	if err := rows.Scan(&user.UUID, &user.UserId, &user.Points, &user.LastMessageTime, &user.Payment, &user.UserGuild.GuildId, 
+			&user.Username, &user.UserIcon, &user.Exp, &user.UserGuild.GuildId, &user.UserGuild.GuildName, &user.UserGuild.GuildIcon); err != nil {
+    	return nil, fmt.Errorf("error scanning user: %v", err)
+  	}
+  	users = append(users, user)
+  }
+  if err := rows.Err(); err != nil {
+    return nil, fmt.Errorf("error iterating rows: %v", err)
+  }
+
+  return users, nil
+}
+

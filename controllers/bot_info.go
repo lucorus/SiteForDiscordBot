@@ -18,12 +18,12 @@ type DiscordUserController struct {
 func (this *DiscordUserController) ListUsers() {
 	res, err := models.AllDsBotUsers("100")
 	if err != nil {
-		this.Data["json"] = err
-		this.ServeJSON()
+		this.Ctx.Output.SetStatus(400)
 		return
 	}
 	// this.TplName = "main_page.html"
 	this.Data["json"] = res
+	this.Ctx.Output.SetStatus(200)
 	this.ServeJSON()
 }
 
@@ -51,16 +51,32 @@ func (this *DiscordUserController) ListUsersForRequstUser() {
 	}
 
 	if user.Discord_server_id == "" {
-		this.Data["json"] = nil
+		this.Ctx.Output.SetStatus(400)
+		return
 	} else {
 		servers_accounts, err := models.FindDsBotUsers(user.Discord_server_id)
 		if err != nil {
-			this.Data["json"] = err
-			this.ServeJSON()
+			this.Ctx.Output.SetStatus(400)
+			return
 		}
 		this.Data["json"] = servers_accounts
+		this.Ctx.Output.SetStatus(200)
 		this.ServeJSON()
 	}
+}
+
+
+// возвращает всех пользователей на сервере с переданным id
+func (this *DiscordUserController) ListUsersInGuild() {
+	GuildId := this.Ctx.Input.Param(":id")
+	users, err := models.ListUsersInGuild(GuildId)
+	if err != nil {
+		this.Ctx.Output.SetStatus(404)
+		return
+	}
+	this.Data["json"] = users
+	this.Ctx.Output.SetStatus(200)
+	this.ServeJSON()
 }
 
 
@@ -68,18 +84,18 @@ func (this *DiscordUserController) ListUsersForRequstUser() {
 func (this *DiscordUserController) AuthorizeUser() {
 	Access := this.Ctx.Request.Header["Access"]
 	if len(Access) == 0 {
-		fmt.Println("нет токена доступа")
+		this.Ctx.Output.SetStatus(401)
 		return
 	}
 	access_token := Access[0]
 	if access_token != conf.AcessToken {
-		fmt.Println("неверный токен доступа")
+		this.Ctx.Output.SetStatus(401)
 		return
 	}
 
 	User := this.Ctx.Request.Header["User"]
 	if len(User) == 0 {
-		fmt.Println("нет id пользователя")
+		this.Ctx.Output.SetStatus(400)
 		return
 	}
 	user_id, err := strconv.Atoi(User[0])
@@ -90,7 +106,7 @@ func (this *DiscordUserController) AuthorizeUser() {
 
 	Token := this.Ctx.Request.Header["Token"]
 	if len(User) == 0 {
-		fmt.Println("нет токена пользователя")
+		this.Ctx.Output.SetStatus(400)
 		return
 	}
 	user_token := Token[0]
@@ -111,23 +127,23 @@ func (this *DiscordUserController) AuthorizeUser() {
 func (this *DiscordUserController) AnAuthorizeUser() {
 	Access := this.Ctx.Request.Header["Access"]
 	if len(Access) == 0 {
-		fmt.Println("нет токена доступа")
+		this.Ctx.Output.SetStatus(401)
 		return
 	}
 	access_token := Access[0]
 	if access_token != conf.AcessToken {
-		fmt.Println("неверный токен доступа")
+		this.Ctx.Output.SetStatus(401)
 		return
 	}
 
 	User := this.Ctx.Request.Header["User"]
 	if len(User) == 0 {
-		fmt.Println("нет id пользователя")
+		this.Ctx.Output.SetStatus(400)
 		return
 	}
 	user_id, err := strconv.Atoi(User[0])
 	if err != nil {
-		fmt.Println(err)
+		this.Ctx.Output.SetStatus(400)
 		return
 	}
 
