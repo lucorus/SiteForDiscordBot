@@ -2,8 +2,9 @@ package models
 
 import (
 	"SiteForDsBot/conf"
+	"crypto/sha256"
 	sql "database/sql"
-	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -63,6 +64,16 @@ type User struct {
 }
 
 
+// кодирует переданный пароль в sha256
+func EncodePassword(password string) string {
+	hasher := sha256.New()
+	data := password + conf.Salt
+	hasher.Write([]byte(data))
+	hash := hasher.Sum(nil)
+	return hex.EncodeToString(hash)
+}
+
+
 // Создаёт нового пользователя
 func NewUser(username, password string) error {
     db, err := CreateConnect()
@@ -72,8 +83,7 @@ func NewUser(username, password string) error {
 
     query := "INSERT INTO users (uuid, username, password, discord_server_id, is_authorized, token) VALUES ($1, $2, $3, $4, $5, $6)"
 
-    _, err = db.Exec(query, uuid.New().String(), username, base64.StdEncoding.EncodeToString([]byte(password)), "",
-    false, uuid.New().String())
+    _, err = db.Exec(query, uuid.New().String(), username, EncodePassword(password), "", false, uuid.New().String())
 
     if err != nil {
         return fmt.Errorf("error inserting user: %v", err)
@@ -91,7 +101,7 @@ func LoginUser(username, password string) (string, error) {
 
     query := "SELECT uuid FROM users WHERE username = $1 AND password = $2"
 
-    rows, err := db.Query(query, username, base64.StdEncoding.EncodeToString([]byte(password)))
+    rows, err := db.Query(query, username, EncodePassword(password))
     if err != nil {
         return "", fmt.Errorf("error querying users: %v", err)
     }
@@ -123,6 +133,24 @@ func DeleteUser(uuid string) error {
 
 	CloseConnect(db) 
     return nil
+}
+
+
+// устанавливает значения пароля и ника для указанного юзера
+func UpdateUser(username, password, UserUUID string) bool {
+    db, err := CreateConnect()
+	if err != nil {
+	    return false
+	}
+
+    query := "UPDATE users SET username = $1, password = $2 WHERE uuid = $3"
+    _, err = db.Exec(query, username, EncodePassword(password), UserUUID)
+    if err != nil {
+        return false
+    }
+    CloseConnect(db)
+
+    return true
 }
 
 

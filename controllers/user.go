@@ -118,6 +118,46 @@ func (this *UserController) DeleteUser() {
 }
 
 
+func (this *UserController) UpdateUser() {
+	authHeader := this.Ctx.Request.Header["Authorization"]
+	if len(authHeader) == 0 {
+		this.Redirect("/user/", 302)
+		return
+	}
+	AuthorizationToken := authHeader[0]
+
+	Uuid, err := GetUserUuidFromJWT(AuthorizationToken)
+	if err != nil {
+		this.Redirect("/user/", 302)
+		return
+	}
+
+	body, err := ioutil.ReadAll(this.Ctx.Request.Body)
+		if err != nil {
+		this.Ctx.Output.SetStatus(400)
+		this.Ctx.Output.Body([]byte("empty fields"))
+		return
+	}
+
+	req := struct { Username, Password string}{}
+	if err := json.Unmarshal(body, &req); err != nil {
+		this.Ctx.Output.SetStatus(400)
+		this.Ctx.Output.Body([]byte("empty fields"))
+		fmt.Println(req, err)
+		return
+	}
+
+	ok := models.UpdateUser(req.Username, req.Password, Uuid)
+	if !ok {
+		this.Ctx.Output.SetStatus(400)
+		return 
+	}
+	this.Ctx.Output.SetStatus(200)
+	this.Data["json"] = "success"
+	this.ServeJSON()
+}
+
+
 func GenerateJWT(uuid string) (string, error) {
     claims := jwt.MapClaims{
         "uuid": uuid,
