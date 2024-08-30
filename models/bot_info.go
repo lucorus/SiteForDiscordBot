@@ -52,19 +52,16 @@ type JoinDsBotUserWithGuild struct {
 	Guild
 }
 
-// Возвращает информацию о пользователях, сортируя её по кол-ву баллов
-func AllDsBotUsers(limit string) ([]DsBotUser, error) {
+// Возвращает информацию о пользователях, сортируя их по кол-ву баллов
+func AllDsBotUsers(page int) ([]DsBotUser, error) {
 	db, err := CreateConnectToDiscordBotBD()
 	if err != nil {
 	    return nil, fmt.Errorf("Error: %v", err)
 	}
 
-	query := "SELECT * FROM users JOIN guilds ON users.guild = guild_id ORDER BY users.points DESC"
-	if limit != "0" {
-		query += " LIMIT " + limit
-	}
+	query := "SELECT * FROM users JOIN guilds ON users.guild = guild_id ORDER BY users.points DESC OFFSET $1 LIMIT $2"
 
-  rows, err := db.Query(query)
+  rows, err := db.Query(query, conf.ObjectsOnPage * page, conf.ObjectsOnPage)
   if err != nil {
     return nil, fmt.Errorf("error querying users: %v", err)
   }

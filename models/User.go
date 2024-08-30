@@ -2,9 +2,8 @@ package models
 
 import (
 	"SiteForDsBot/conf"
-	"crypto/sha256"
+	"SiteForDsBot/utils"
 	sql "database/sql"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -64,16 +63,6 @@ type User struct {
 }
 
 
-// кодирует переданный пароль в sha256
-func EncodePassword(password string) string {
-	hasher := sha256.New()
-	data := password + conf.Salt
-	hasher.Write([]byte(data))
-	hash := hasher.Sum(nil)
-	return hex.EncodeToString(hash)
-}
-
-
 // Создаёт нового пользователя
 func NewUser(username, password string) error {
     db, err := CreateConnect()
@@ -83,7 +72,7 @@ func NewUser(username, password string) error {
 
     query := "INSERT INTO users (uuid, username, password, discord_server_id, is_authorized, token) VALUES ($1, $2, $3, $4, $5, $6)"
 
-    _, err = db.Exec(query, uuid.New().String(), username, EncodePassword(password), "", false, uuid.New().String())
+    _, err = db.Exec(query, uuid.New().String(), username, utils.EncodePassword(password), "", false, uuid.New().String())
 
     if err != nil {
         return fmt.Errorf("error inserting user: %v", err)
@@ -101,7 +90,7 @@ func LoginUser(username, password string) (string, error) {
 
     query := "SELECT uuid FROM users WHERE username = $1 AND password = $2"
 
-    rows, err := db.Query(query, username, EncodePassword(password))
+    rows, err := db.Query(query, username, utils.EncodePassword(password))
     if err != nil {
         return "", fmt.Errorf("error querying users: %v", err)
     }
@@ -144,7 +133,7 @@ func UpdateUser(username, password, UserUUID string) bool {
 	}
 
     query := "UPDATE users SET username = $1, password = $2 WHERE uuid = $3"
-    _, err = db.Exec(query, username, EncodePassword(password), UserUUID)
+    _, err = db.Exec(query, username, utils.EncodePassword(password), UserUUID)
     if err != nil {
         return false
     }

@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"time"
 
 	beego "github.com/beego/beego/v2/server/web"
-	"github.com/dgrijalva/jwt-go"
 
-	"SiteForDsBot/conf"
 	models "SiteForDsBot/models"
+	"SiteForDsBot/responses"
+	"SiteForDsBot/utils"
 )
 
 type UserController struct {
@@ -79,7 +78,7 @@ func (this *UserController) LoginUser() {
     return
   }
 
-	token, err := GenerateJWT(uuid)
+	token, err := utils.GenerateJWT(uuid)
   if err != nil {
     this.Ctx.Output.SetStatus(500)
     this.Ctx.Output.Body([]byte("Error in generation jwt"))
@@ -100,7 +99,7 @@ func (this *UserController) DeleteUser() {
 	}
 	AuthorizationToken := authHeader[0]
 
-	Uuid, err := GetUserUuidFromJWT(AuthorizationToken)
+	Uuid, err := utils.GetUserUuidFromJWT(AuthorizationToken)
 	if err != nil {
 		this.Redirect("/user/", 302)
 		return
@@ -126,7 +125,7 @@ func (this *UserController) UpdateUser() {
 	}
 	AuthorizationToken := authHeader[0]
 
-	Uuid, err := GetUserUuidFromJWT(AuthorizationToken)
+	Uuid, err := utils.GetUserUuidFromJWT(AuthorizationToken)
 	if err != nil {
 		this.Redirect("/user/", 302)
 		return
@@ -158,53 +157,21 @@ func (this *UserController) UpdateUser() {
 }
 
 
-func GenerateJWT(uuid string) (string, error) {
-    claims := jwt.MapClaims{
-        "uuid": uuid,
-        "exp":  time.Now().Add(time.Hour * 100).Unix(),
-    }
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-    return token.SignedString([]byte(conf.Jwt_secret))
-}
-
-
-func GetUserUuidFromJWT(tokenString string) (string, error) {
-  token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-  if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-    return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-  }
-    return []byte(conf.Jwt_secret), nil
-  })
-  if err != nil {
-    return "", err
-  }
-
-  if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-    uuid, ok := claims["uuid"].(string)
-    if !ok {
-      return "", fmt.Errorf("uuid not found or invalid type")
-    }
-    return uuid, nil
-  }
-  return "", fmt.Errorf("invalid token")
-}
-
-
-// выводит данные пользователя с переданным uuid или берёт uuid из jwt токена
-func (this *UserController) Profile() {
+// возвращает данные пользователя с переданным uuid или берёт uuid из jwt токена
+func UserInfo(this *UserController) (*models.User, error) {
 	uuid := this.Ctx.Input.Param(":uuid")
 	if len(uuid) == 0 {
 		authHeader := this.Ctx.Request.Header["Authorization"]
 		if len(authHeader) == 0 {
 			this.Redirect("/user/", 302)
-			return
+			return nil, fmt.Errorf("учётные данные не были предоставлены")
 		}
 		AuthorizationToken := authHeader[0]
 
-		Uuid, err := GetUserUuidFromJWT(AuthorizationToken)
+		Uuid, err := utils.GetUserUuidFromJWT(AuthorizationToken)
 		if err != nil {
 			this.Redirect("/user/", 302)
-			return
+			return nil, fmt.Errorf("uuid не предоставлен")
 		}
 		uuid = Uuid
 	}
@@ -212,12 +179,34 @@ func (this *UserController) Profile() {
 	user, err := models.Find(uuid)
 	if err != nil {
 		this.Redirect("/user/", 302)
-		return
+		return nil, fmt.Errorf("Пользователь с даннымй uuid не найден")
 	}
 
-	this.Data["json"] = user
-	this.Ctx.Output.SetStatus(200)
-	this.ServeJSON()
+	return user, nil
+}
+
+
+func (this *UserController) Profile() {
+  user, err := UserInfo(this)
+  if err != nil {
+      this.Redirect("/user/", 302)
+      return
+  }
+
+  var userDsAccounts []models.DsBotUser
+  userDsAccounts, err = ListAccountsUser(this)
+  if err != nil {
+      fmt.Println(err)
+  }
+
+  response := responses.ProfileResponse{
+      User:           user,
+      UserDsAccounts: userDsAccounts,
+  }
+
+  this.Data["json"] = response
+  this.Ctx.Output.SetStatus(200)
+  this.ServeJSON()
 }
 
 
@@ -230,7 +219,7 @@ func (this *UserController) ChangeToken() {
 	}
 	AuthorizationToken := authHeader[0]
 
-	uuid, err := GetUserUuidFromJWT(AuthorizationToken)
+	uuid, err := utils.GetUserUuidFromJWT(AuthorizationToken)
 	if err != nil {
 		this.Ctx.Output.SetStatus(400)
 		return

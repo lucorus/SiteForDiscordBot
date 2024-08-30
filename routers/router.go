@@ -16,7 +16,6 @@ func init() {
 		beego.Router("/profile/:uuid", &controllers.UserController{}, "get:Profile")
 
 		beego.Router("/main_page/", &controllers.DiscordUserController{}, "get:ListUsers")
-		beego.Router("/my_accounts/", &controllers.DiscordUserController{}, "get:ListUsersForRequstUser")
 		beego.Router("/guild/:id:int", &controllers.DiscordUserController{}, "get:ListUsersInGuild")
 
 		beego.Router("/change_token/", &controllers.UserController{}, "patch:ChangeToken")
