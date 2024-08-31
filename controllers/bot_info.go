@@ -17,15 +17,7 @@ type DiscordUserController struct {
 
 // выводит топ пользователей по кол-ву баллов
 func (this *DiscordUserController) ListUsers() {
-	pageStr := this.GetString("page")
-	page := 1
-	if pageStr != "" {
-		pageInt, err := strconv.Atoi(pageStr)
-		if err != nil {
-			pageInt = 1
-		}
-		page = pageInt
-	}
+	page := utils.GetPage(this.GetString("page"))
 
 	res, err := models.AllDsBotUsers(page)
 	if err != nil {
@@ -64,21 +56,23 @@ func ListAccountsUser(this *UserController) ([]models.DsBotUser, error) {
 
 	if user.Discord_server_id == "" {
 		return nil, fmt.Errorf("Пользователь Discord не найден")
-	} else {
-		servers_accounts, err := models.FindDsBotUsers(user.Discord_server_id)
-		if err != nil {
-			return nil, fmt.Errorf("Ошибка при получении учётных записей")
-		}
-		
-		return servers_accounts, nil
 	}
+
+	page := utils.GetPage(this.GetString("page"))
+	servers_accounts, err := models.FindDsBotUsers(user.Discord_server_id, page)
+	if err != nil {
+		return nil, fmt.Errorf("Ошибка при получении учётных записей")
+	}
+		
+	return servers_accounts, nil
 }
 
 
 // возвращает всех пользователей на сервере с переданным id
 func (this *DiscordUserController) ListUsersInGuild() {
 	GuildId := this.Ctx.Input.Param(":id")
-	users, err := models.ListUsersInGuild(GuildId)
+	page := utils.GetPage(this.GetString("page"))
+	users, err := models.ListUsersInGuild(GuildId, page)
 	if err != nil {
 		this.Ctx.Output.SetStatus(404)
 		return

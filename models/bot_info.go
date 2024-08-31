@@ -85,7 +85,7 @@ func AllDsBotUsers(page int) ([]DsBotUser, error) {
 }
 
 // выводит все учётные записи пользователя с переданным discord_id
-func FindDsBotUsers(discord_user_id string) ([]DsBotUser, error) {
+func FindDsBotUsers(discord_user_id string, page int) ([]DsBotUser, error) {
 	db, err := CreateConnectToDiscordBotBD()
 	if err != nil {
 	    return nil, fmt.Errorf("Error: %v", err)
@@ -96,8 +96,8 @@ func FindDsBotUsers(discord_user_id string) ([]DsBotUser, error) {
 		return nil, fmt.Errorf("Ошибка при преобразовании типа")
 	}
 
-	query := "SELECT * FROM users JOIN guilds ON users.guild = guild_id WHERE user_id = $1 ORDER BY users.points DESC"
-  rows, err := db.Query(query, user_id)
+	query := "SELECT * FROM users JOIN guilds ON users.guild = guild_id WHERE user_id = $1 ORDER BY users.points DESC OFFSET $2 LIMIT $3"
+  rows, err := db.Query(query, user_id, conf.ObjectsOnPage * page, conf.ObjectsOnPage)
   if err != nil {
     return nil, fmt.Errorf("error querying users: %v", err)
   }
@@ -122,7 +122,7 @@ func FindDsBotUsers(discord_user_id string) ([]DsBotUser, error) {
 
 
 // выводит все учётные записи пользователей на указанном дискорд сервере
-func ListUsersInGuild(GuildId string) ([]DsBotUser, error) {
+func ListUsersInGuild(GuildId string, page int) ([]DsBotUser, error) {
 	db, err := CreateConnectToDiscordBotBD()
 	if err != nil {
 	    return nil, fmt.Errorf("Error: %v", err)
@@ -133,8 +133,8 @@ func ListUsersInGuild(GuildId string) ([]DsBotUser, error) {
 		return nil, fmt.Errorf("Error in change type")
 	}
 
-	query := "SELECT * FROM users JOIN guilds ON users.guild = guild_id WHERE guild_id = $1 ORDER BY users.points DESC"
-  rows, err := db.Query(query, guild_id)
+	query := "SELECT * FROM users JOIN guilds ON users.guild = guild_id WHERE guild_id = $1 ORDER BY users.points DESC OFFSET $2 LIMIT $3"
+  rows, err := db.Query(query, guild_id, conf.ObjectsOnPage * page, conf.ObjectsOnPage)
   if err != nil {
     return nil, fmt.Errorf("error querying users: %v", err)
   }

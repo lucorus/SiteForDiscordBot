@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -51,3 +52,16 @@ func GetUserUuidFromJWT(tokenString string) (string, error) {
   return "", fmt.Errorf("invalid token")
 }
 
+
+// преобразует информацию о номере страницы в int
+func GetPage(pageStr string) int {
+	page := 0
+	if pageStr != "" {
+		pageInt, err := strconv.Atoi(pageStr)
+		if err != nil {
+			pageInt = 0
+		}
+		page = pageInt
+	}
+  return page
+}
